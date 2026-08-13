@@ -1,42 +1,67 @@
 # Music Cold-Start Recommender
 
-A hybrid music recommendation system designed to generate relevant, novel, and diverse recommendations for users with limited listening history.
+A hybrid music recommendation system designed to generate relevant, novel, and diverse recommendations for listeners with limited history.
 
 ## Overview
 
-Traditional collaborative filtering relies on historical user behavior. It therefore struggles when a new listener has provided few or no interactions—a problem known as **user cold start**.
+Traditional collaborative filtering depends on historical user behavior. It therefore struggles when a new listener has provided few interactions—a problem known as **user cold start**.
 
-This project investigates how content features and collaborative signals can be combined to improve recommendations during the early stages of a user’s experience.
-
-Given a small set of seed songs, the system will rank unseen tracks that the listener is likely to engage with.
+This project investigates how content features and collaborative signals can be combined during the early stages of a user’s experience. Given a small set of seed songs, the system ranks unseen tracks that the listener may engage with.
 
 ## Cold-Start Scenarios
 
-The recommendation system will be evaluated under several levels of available user history:
+The system will be evaluated under several levels of observed user history:
 
 | Scenario            | Observed seed songs |
 | ------------------- | ------------------: |
 | Severe cold start   |                   1 |
 | Moderate cold start |                   3 |
 | Light cold start    |                   5 |
-| Warm user           |          10 or more |
+| Warm user           |                  10 |
 
-The hybrid model will place greater weight on content features when behavioral data is limited and progressively incorporate collaborative signals as more interactions become available.
+The hybrid model will initially rely heavily on content features and progressively incorporate collaborative signals as more interactions become available.
 
-## Dataset
+## Datasets
 
-This project uses the [Music4All-Onion dataset](https://zenodo.org/records/6609677), which combines anonymized listening behavior with song-level content information.
+The project uses two related datasets.
 
-The current pipeline uses:
+### Music4All-Onion
+
+[Music4All-Onion](https://zenodo.org/records/6609677) supplies large-scale aggregated listening behavior and sparse genre representations:
 
 * `userid_trackid_count.tsv.bz2`: aggregated user–track play counts
-* `id_genres_tf-idf.tsv.bz2`: TF-IDF genre representations
+* `id_genres_tf-idf.tsv.bz2`: 685-dimensional genre TF-IDF vectors
 
-Raw dataset files are excluded from Git because of their size. Reproducible download and integrity-checking instructions are provided below.
+This dataset supports large-scale implicit-feedback and collaborative-filtering experiments.
+
+### Music4All
+
+The original Music4All dataset supplies:
+
+* Timestamped listening events
+* Artist, song, and album names
+* Spotify identifiers and audio attributes
+* Genres and descriptive tags
+* Lyric-language labels
+
+The project uses the following tabular files:
+
+* `listening_history.csv`
+* `id_information.csv`
+* `id_metadata.csv`
+* `id_genres.csv`
+* `id_tags.csv`
+* `id_lang.csv`
+
+These files were obtained directly from the dataset authors under a disclosure agreement. They are excluded from Git and are not redistributed by this repository.
+
+The timestamped listening history enables chronological cold-start evaluation, while the readable metadata allows recommendations and visualizations to use actual artist and song names.
 
 ## Dataset Audit Results
 
-The interaction data was audited directly from the compressed source file using chunked processing.
+### Aggregated Music4All-Onion Interactions
+
+The complete interaction file was audited with memory-efficient chunked processing.
 
 | Statistic          |       Value |
 | ------------------ | ----------: |
@@ -49,7 +74,79 @@ The interaction data was audited directly from the compressed source file using 
 | Matrix density     |   0.742867% |
 | Matrix sparsity    |  99.257133% |
 
-The interaction matrix contains approximately 6.73 billion possible user–track combinations. Because more than 99% of these combinations are unobserved, later modeling stages will use sparse data structures rather than a dense matrix.
+The interaction matrix contains approximately 6.73 billion possible user–track combinations. Because more than 99% are unobserved, modeling stages will use sparse data structures.
+
+All 56,512 interaction tracks have corresponding genre records.
+
+### Genre TF-IDF Features
+
+| Statistic                    |      Value |
+| ---------------------------- | ---------: |
+| Tracks                       |    109,269 |
+| Genre features               |        685 |
+| Total feature cells          | 74,849,260 |
+| Nonzero feature cells        |    237,448 |
+| Feature density              |  0.317235% |
+| Feature sparsity             | 99.682765% |
+| Tracks without active genres |         27 |
+
+The content matrix is extremely sparse, with approximately 2.17 active genre features per track on average.
+
+### Music4All Metadata
+
+Each of the five track-level metadata tables contains:
+
+* 109,269 unique track IDs
+* No duplicate track IDs
+* No missing track IDs
+* No missing cells
+* Complete one-to-one coverage across tables
+
+This provides artist, title, album, Spotify, genre, tag, language, and audio-feature information for the full catalog.
+
+### Timestamped Listening History
+
+| Statistic                |      Value |
+| ------------------------ | ---------: |
+| Listening events         |  5,109,592 |
+| Unique users             |     14,127 |
+| Unique tracks            |     99,596 |
+| Metadata coverage        |       100% |
+| Earliest timestamp       | 2013-12-30 |
+| Latest timestamp         | 2019-03-26 |
+| Median events per user   |        375 |
+| Mean events per user     |     361.69 |
+| Maximum events per user  |        500 |
+| Median events per track  |         11 |
+| Maximum events per track |     82,871 |
+
+The exact maximum of 500 events per user suggests that listening histories were capped during dataset construction. This limitation will be considered during EDA and evaluation design.
+
+## Evaluation Design
+
+The primary evaluation will use the timestamped Music4All listening history.
+
+For each eligible user:
+
+1. Interactions will be ordered chronologically.
+2. Only the first 1, 3, 5, or 10 distinct seed tracks will be revealed.
+3. The recommender will rank unseen candidate tracks.
+4. Recommendations will be evaluated against the user’s later interactions.
+
+This simulates how the system would perform as a new listener gradually provides more behavioral evidence.
+
+The primary ranking metrics will be:
+
+* **Recall@K:** proportion of relevant held-out tracks recovered
+* **NDCG@K:** ranking quality with greater credit for relevant tracks near the top
+
+The project will also measure:
+
+* Catalog coverage
+* Recommendation novelty
+* Intra-list diversity
+
+Music4All-Onion will support secondary large-scale implicit-feedback experiments and comparisons.
 
 ## Modeling Roadmap
 
@@ -63,43 +160,34 @@ The project will compare progressively more sophisticated approaches:
 6. Diversity- and novelty-aware reranking
 7. Interactive recommendation demo
 
-Each advanced model will be compared against simpler baselines to determine whether its additional complexity produces a meaningful improvement.
-
-## Evaluation
-
-The primary ranking metrics will be:
-
-* **Recall@K**: the proportion of relevant held-out tracks recovered
-* **NDCG@K**: the quality of the recommendation ordering
-
-The project will also measure:
-
-* Catalog coverage
-* Recommendation novelty
-* Intra-list diversity
-
-Cold-start evaluation will reveal only the first 1, 3, or 5 seed interactions for a held-out user. Recommendations will then be evaluated against that user’s later interactions.
+Each advanced approach will be compared with simpler baselines to determine whether its additional complexity produces a meaningful improvement.
 
 ## Repository Structure
 
 ```text
 music-cold-start-recommender/
-├── configs/                    # Experiment and model configuration
+├── configs/                         # Experiment and model configuration
 ├── data/
-│   ├── raw/                    # Immutable source data
-│   ├── interim/                # Partially transformed data
-│   └── processed/              # Model-ready datasets
+│   ├── raw/                         # Immutable, Git-ignored source data
+│   ├── interim/                     # Partially transformed data
+│   └── processed/                   # Model-ready datasets
 ├── docs/
-│   └── problem_statement.md    # Formal problem definition
-├── models/                     # Serialized model artifacts
-├── notebooks/                  # Exploration and experiments
+│   └── problem_statement.md         # Formal problem definition
+├── models/                          # Serialized model artifacts
+├── notebooks/
+│   └── 01_data_eda.ipynb            # Exploratory data analysis
 ├── reports/
-│   └── figures/                # Final visualizations
+│   ├── figures/                     # Final visualizations
+│   └── tables/                      # Generated audit and EDA tables
 ├── src/
 │   └── music_recommender/
 │       ├── __init__.py
-│       └── data_audit.py       # Memory-efficient dataset audit
-├── tests/                      # Automated tests
+│       ├── data_audit.py            # Aggregated interaction audit
+│       ├── genre_audit.py           # Genre TF-IDF audit
+│       ├── coverage_audit.py        # Interaction/content coverage
+│       ├── metadata_audit.py        # Protected metadata validation
+│       └── listening_history_audit.py
+├── tests/                           # Automated tests
 ├── pyproject.toml
 └── README.md
 ```
@@ -108,7 +196,7 @@ music-cold-start-recommender/
 
 This project uses Python 3.12.
 
-Clone the repository and enter its directory:
+Clone the repository:
 
 ```bash
 git clone https://github.com/davidassio/music-cold-start-recommender.git
@@ -129,9 +217,9 @@ python -m pip install --upgrade pip
 python -m pip install -e .
 ```
 
-## Data Acquisition
+## Public Data Acquisition
 
-Download the genre features:
+Download the Music4All-Onion genre features:
 
 ```bash
 curl -L --continue-at - \
@@ -139,7 +227,7 @@ curl -L --continue-at - \
   "https://zenodo.org/records/6609677/files/id_genres_tf-idf.tsv.bz2?download=1"
 ```
 
-Download the aggregated interaction data:
+Download the aggregated interactions:
 
 ```bash
 curl -L --continue-at - \
@@ -154,44 +242,57 @@ md5 data/raw/id_genres_tf-idf.tsv.bz2
 md5 data/raw/userid_trackid_count.tsv.bz2
 ```
 
-Expected MD5 checksums:
+Expected checksums:
 
 | File                           | MD5 checksum                       |
 | ------------------------------ | ---------------------------------- |
 | `id_genres_tf-idf.tsv.bz2`     | `a742b5fa1d2e2ce780101773e57bb7f5` |
 | `userid_trackid_count.tsv.bz2` | `314b51196a9c8f333c7fefc0711760a1` |
 
-## Running the Data Audit
+Access to the original Music4All files must be requested from the dataset authors. Those files cannot be downloaded or redistributed through this repository.
 
-Run a quick validation over two chunks:
+## Running the Audits
 
-```bash
-python -m music_recommender.data_audit --max-chunks 2
-```
-
-Run the complete interaction audit:
+Run the aggregated interaction audit:
 
 ```bash
 python -m music_recommender.data_audit
 ```
 
-The audit reads the compressed dataset in 250,000-row chunks. This keeps memory usage bounded while calculating statistics across approximately 50 million user–track pairs.
-
-An alternative chunk size can be provided:
+Run the genre-feature audit:
 
 ```bash
-python -m music_recommender.data_audit --chunk-size 500000
+python -m music_recommender.genre_audit
 ```
+
+Measure interaction and genre coverage:
+
+```bash
+python -m music_recommender.coverage_audit
+```
+
+If the agreement-protected Music4All files are available locally, run:
+
+```bash
+python -m music_recommender.metadata_audit
+python -m music_recommender.listening_history_audit
+```
+
+The large interaction files are processed in chunks to keep memory usage bounded.
 
 ## Current Status
 
 * [x] Repository and Python environment initialized
 * [x] Cold-start problem formally defined
-* [x] Raw data downloaded and checksum-verified
-* [x] Memory-efficient interaction audit implemented
-* [x] Complete interaction dataset audited
-* [ ] Genre features audited and joined
-* [ ] Modeling subset constructed
+* [x] Public Music4All-Onion data downloaded and verified
+* [x] Aggregated interaction dataset audited
+* [x] Genre TF-IDF features audited
+* [x] Interaction and genre coverage validated
+* [x] Music4All metadata obtained and audited locally
+* [x] Timestamped listening history audited
+* [ ] Interaction and content EDA completed
+* [ ] Evidence-based filtering thresholds selected
+* [ ] Chronological train/validation/test splits created
 * [ ] Popularity baseline implemented
 * [ ] Content-based recommender implemented
 * [ ] Collaborative filtering implemented
@@ -201,4 +302,6 @@ python -m music_recommender.data_audit --chunk-size 500000
 
 ## Data Attribution
 
-Music4All-Onion is provided by its original authors through Zenodo. Dataset files are not redistributed through this repository. Users should consult the official dataset page for its documentation, citation requirements, and licensing terms.
+Music4All-Onion is provided by its authors through Zenodo. The original Music4All dataset was obtained separately from its authors under a disclosure agreement.
+
+Dataset files are not redistributed through this repository. Users should consult the official dataset documentation for licensing, citation, and access requirements.
