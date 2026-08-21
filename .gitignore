@@ -38,3 +38,6 @@ reports/figures/*
 .ruff_cache/
 .coverage
 htmlcov/
+
+# Generated audit and EDA outputs
+reports/tables/*
