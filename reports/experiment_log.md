@@ -36,3 +36,22 @@ These findings establish two requirements for subsequent models:
 2. Hybridization should account for the quantity and coherence of seed evidence instead of relying only on a fixed average content profile.
 
 All results above are validation results. Test users will remain untouched until model selection is complete.
+
+## Collaborative Latent-Factor Baseline
+
+A truncated-SVD collaborative model was trained on the binary interaction matrix containing 11,190 training users, 67,428 tracks, and 2,003,815 nonzero interactions.
+
+Latent dimensionality was selected using validation performance.
+
+| Components | Explained variance | Recall@10, 1 seed | Recall@10, 3 seeds | Recall@10, 5 seeds | Recall@10, 10 seeds |
+|---:|---:|---:|---:|---:|---:|
+| 32 | 10.08% | 0.0305 | 0.0347 | 0.0423 | 0.0585 |
+| 64 | 13.66% | 0.0325 | 0.0385 | 0.0461 | 0.0713 |
+| 128 | 18.45% | 0.0341 | 0.0434 | 0.0520 | 0.0822 |
+| 256 | 24.77% | **0.0352** | **0.0469** | **0.0565** | **0.0924** |
+
+The 256-component model was selected because it achieved the strongest ranking performance at every cold-start level.
+
+Collaborative performance improves substantially as more seeds become available. With one seed, the model only narrowly exceeds popularity. With 10 seeds, it improves Recall@10 by approximately 177% and NDCG@10 by approximately 172% over popularity.
+
+This supports the central cold-start hypothesis: collaborative evidence becomes much more useful as the system observes additional user preferences.
